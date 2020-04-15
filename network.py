@@ -5,6 +5,7 @@ import torchsummary
 class Net(nn.Module):
     """The CNN from Colorful Image Colorization."""
     def __init__(self):
+        """Constructor defining all layers."""
         super(Net, self).__init__()
 
         # Conv1
@@ -60,6 +61,7 @@ class Net(nn.Module):
         torchsummary.summary(self, (1, 224, 224))
 
     def forward(self, x):
+        """Performs the forward pass."""
         # Conv1
         x = F.relu(self.conv1_1(x))
         x = F.relu(self.conv1_2(x))
