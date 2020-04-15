@@ -8,19 +8,17 @@ neighbors.fit(bins)
 
 def soft_encoding(Y, sigma=5, debug=False):
     """Converts two color channels Y to probability distributiton Z."""
-    Y_shape = Y.shape
-
     # Find nearest neighboring bins
     distances, indices = neighbors.kneighbors(Y.reshape(-1, 2))
-    distances = distances.reshape(*Y_shape[:-1], -1)
-    indices = indices.reshape(*Y_shape[:-1], -1)
+    distances = distances.reshape(*Y.shape[:-1], -1)
+    indices = indices.reshape(*Y.shape[:-1], -1)
 
     # Weight proportionally to distance using Gaussian kernel and normalize
     weighted = np.exp(-distances**2 / (2 * sigma**2))
     weighted /= weighted.sum(axis=2)[...,np.newaxis]
 
     # Build Z matrix
-    Z = np.zeros((*Y_shape[:-1], Q))
+    Z = np.zeros((*Y.shape[:-1], Q))
     for i in range(indices.shape[0]):
         for j in range(indices.shape[1]):
             row = indices[i,j,:]
