@@ -1,5 +1,7 @@
 import torch
 import numpy as np
+import matplotlib.pyplot as plt
+from skimage import io, transform, color
 from sklearn.neighbors import NearestNeighbors
 
 bins = np.load('resources/bins.npy')
@@ -9,11 +11,7 @@ neighbors.fit(bins)
 
 def soft_encode(Y, sigma=5, debug=False):
     """Converts two color channels Y to probability distributiton Z."""
-    if len(Y.shape) == 4:
-        Y = np.squeeze(Y.transpose(2, 3, 1, 0), axis=3)
-        reshaped = True
-    else:
-        reshaped = False
+    Y, reshaped = reshape(Y, 3)
 
     # Find nearest neighboring bins
     distances, indices = neighbors.kneighbors(Y.reshape(-1, 2))
@@ -40,16 +38,15 @@ def soft_encode(Y, sigma=5, debug=False):
                     assert(np.isclose(Z[i,j,:].sum(), 1.0))
 
     if reshaped:
-        Z = Z.transpose(2, 0, 1)[np.newaxis,...]
+        Z, _ = reshape(Z, 4)
+
     return Z
 
 def decode(Z):
-    if len(Z.shape) == 4:
-        Z = np.squeeze(Z.transpose(2, 3, 1, 0), axis=3)
-        reshaped = True
-    else:
-        reshaped = False
+    """Converts probability distribution Z to two color channels Y."""
+    Z, reshaped = reshape(Z, 3)
 
+    # TODO: Implement annealed-mean
     mode = Z.argmax(axis=2)
     Y = np.zeros((*mode.shape, 2))
     for i in range(Y.shape[0]):
@@ -57,7 +54,8 @@ def decode(Z):
             Y[i,j,:] = bins[mode[i,j]]
 
     if reshaped:
-        Y = Y.transpose(2, 0, 1)[np.newaxis,...]
+        Y, _ = reshape(Y, 4)
+
     return Y
 
 def multinomial_cross_entropy_loss(Z_hat, Z, eps=1e-16):
@@ -65,3 +63,39 @@ def multinomial_cross_entropy_loss(Z_hat, Z, eps=1e-16):
     # TODO: Implement weighting
     loss = torch.mean(-Z * torch.log(Z_hat + eps))
     return loss
+
+def reshape(a, dims):
+    """Reshapes an array between Matplotlib and PyTorch shapes."""
+    if len(a.shape) == dims:
+        # Do nothing
+        return a, False
+
+    if dims == 3:
+        # Matplotlib (w, h, c)
+        a = np.squeeze(a.transpose(2, 3, 1, 0), axis=3)
+    elif dims == 4:
+        # PyTorch (1, c, w, h)
+        a = a.transpose(2, 0, 1)[np.newaxis,...]
+    else:
+        raise Exception(f'Invalid dimensions, only 3 or 4 allowed: {dims}')
+
+    return a, True
+
+def imread(path, size=(224, 224)):
+    """Reads and resizes an image, returns Lab channels."""
+    rgb = io.imread(path)
+    rgb = transform.resize(rgb, size)
+    lab = color.rgb2lab(rgb)
+    L = lab[...,:1]
+    ab = lab[...,1:]
+    return L, ab
+
+def imshow(L, ab):
+    """Displays an image, takes Lab channels."""
+    L, _ = reshape(L, 3)
+    ab, _ = reshape(ab, 3)
+    lab = np.concatenate((L, ab), axis=2)
+    rgb = color.lab2rgb(lab)
+    plt.figure()
+    plt.imshow(rgb)
+    plt.show()

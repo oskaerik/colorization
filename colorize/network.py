@@ -5,6 +5,7 @@ from . import util
 
 class Net(nn.Module):
     """The CNN from Colorful Image Colorization."""
+
     def __init__(self):
         """Constructor defining all layers."""
         super(Net, self).__init__()
