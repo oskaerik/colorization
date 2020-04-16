@@ -20,7 +20,7 @@ def soft_encode(Y, sigma=5, debug=False):
 
     # Weight proportionally to distance using Gaussian kernel and normalize
     weighted = np.exp(-distances**2 / (2 * sigma**2))
-    weighted /= weighted.sum(axis=2)[...,np.newaxis]
+    weighted /= weighted.sum(axis=2, keepdims=True)
 
     # Build Z matrix
     Z = np.zeros((*Y.shape[:-1], Q))
@@ -61,7 +61,7 @@ def decode(Z):
 def multinomial_cross_entropy_loss(Z_hat, Z, eps=1e-16):
     """Calculates the weighted multinomial cross entropy loss."""
     # TODO: Implement weighting
-    loss = torch.mean(-Z * torch.log(Z_hat + eps))
+    loss = torch.mean(torch.sum(-Z * torch.log(Z_hat + eps), dim=(1, 2, 3)))
     return loss
 
 def reshape(a, dims):
