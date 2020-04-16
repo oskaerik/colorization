@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torchsummary
+from . import util
 
 class Net(nn.Module):
     """The CNN from Colorful Image Colorization."""
@@ -53,9 +54,8 @@ class Net(nn.Module):
         self.conv8_2 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1, dilation=1)
         self.conv8_3 = nn.Conv2d(in_channels=128, out_channels=128, kernel_size=3, stride=1, padding=1, dilation=1)
 
-        # Bins
-        self.conv_bins = nn.Conv2d(in_channels=128, out_channels=313, kernel_size=1, stride=1, padding=0, dilation=1)
-        self.conv_mean = nn.Conv2d(in_channels=313, out_channels=2, kernel_size=1, stride=1, padding=0, dilation=1)
+        # Distribution Z
+        self.conv_dist = nn.Conv2d(in_channels=128, out_channels=313, kernel_size=1, stride=1, padding=0, dilation=1)
 
         # Print summary
         torchsummary.summary(self, (1, 224, 224))
@@ -107,9 +107,8 @@ class Net(nn.Module):
         x = F.relu(self.conv8_2(x))
         x = F.relu(self.conv8_3(x))
 
-        # Convert to color channels
-        x = self.conv_bins(x)
-        x = F.softmax(x / 0.38, dim=1)
-        x = self.conv_mean(x)
+        # Distribution Z
+        x = self.conv_dist(x)
+        x = F.softmax(x, dim=1)
 
         return x
