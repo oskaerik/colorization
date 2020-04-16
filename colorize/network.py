@@ -55,7 +55,7 @@ class Net(nn.Module):
 
         # Bins
         self.conv_bins = nn.Conv2d(in_channels=128, out_channels=313, kernel_size=1, stride=1, padding=0, dilation=1)
-        # TODO: Implement scaling/softmax/decoding
+        self.conv_mean = nn.Conv2d(in_channels=313, out_channels=2, kernel_size=1, stride=1, padding=0, dilation=1)
 
         # Print summary
         torchsummary.summary(self, (1, 224, 224))
@@ -107,8 +107,9 @@ class Net(nn.Module):
         x = F.relu(self.conv8_2(x))
         x = F.relu(self.conv8_3(x))
 
-        # Bins
+        # Convert to color channels
         x = self.conv_bins(x)
-        # TODO: Implement scaling/softmax/decoding
+        x = F.softmax(x / 0.38, dim=1)
+        x = self.conv_mean(x)
 
         return x
