@@ -6,15 +6,27 @@ from sklearn.neighbors import NearestNeighbors
 
 bins = np.load('resources/bins.npy')
 Q = len(bins)
-neighbors = NearestNeighbors(n_neighbors=5)
-neighbors.fit(bins)
+nn1 = NearestNeighbors(n_neighbors=1)
+nn1.fit(bins)
+nn5 = NearestNeighbors(n_neighbors=5)
+nn5.fit(bins)
+
+def closest_bins(Y):
+    """Finds the closest bin for each pixel given two color channels Y."""
+    Y, _ = reshape(Y, 3)
+
+    # Find nearest neighboring bin for each pixel
+    _, indices = nn1.kneighbors(Y.reshape(-1, 2))
+    indices = indices.reshape(*Y.shape[:-1], -1)
+
+    return indices
 
 def soft_encode(Y, sigma=5, debug=False):
     """Converts two color channels Y to probability distributiton Z."""
     Y, reshaped = reshape(Y, 3)
 
     # Find nearest neighboring bins
-    distances, indices = neighbors.kneighbors(Y.reshape(-1, 2))
+    distances, indices = nn5.kneighbors(Y.reshape(-1, 2))
     distances = distances.reshape(*Y.shape[:-1], -1)
     indices = indices.reshape(*Y.shape[:-1], -1)
 
