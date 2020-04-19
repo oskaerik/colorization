@@ -10,6 +10,7 @@ nn1 = NearestNeighbors(n_neighbors=1)
 nn1.fit(bins)
 nn5 = NearestNeighbors(n_neighbors=5)
 nn5.fit(bins)
+w = torch.tensor(np.load('resources/w.npy'))
 
 def closest_bins(Y):
     """Finds the closest bin for each pixel given two color channels Y."""
@@ -95,11 +96,15 @@ def reshape(a, dims):
 
 def imread(path, size=(224, 224)):
     """Reads and resizes an image, returns Lab channels."""
-    rgb = io.imread(path)
+    # Read image as RGB (drop alpha channel if it exists) and resize
+    rgb = io.imread(path)[:,:,:3]
     rgb = transform.resize(rgb, size)
+
+    # Convert to Lab and split into L and ab channels
     lab = color.rgb2lab(rgb)
     L = lab[...,:1]
     ab = lab[...,1:]
+
     return L, ab
 
 def imshow(L, ab):
