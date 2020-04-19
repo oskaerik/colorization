@@ -73,8 +73,9 @@ def decode(Z):
 
 def multinomial_cross_entropy_loss(Z_hat, Z, eps=1e-16):
     """Calculates the weighted multinomial cross entropy loss."""
-    # TODO: Implement weighting
-    loss = torch.mean(torch.sum(-Z * torch.log(Z_hat + eps), dim=(1, 2, 3)))
+    q_star = torch.argmax(Z, dim=1, keepdim=True)
+    v = torch.take(w, q_star)
+    loss = torch.mean(-torch.sum(v * Z * torch.log(Z_hat + eps), dim=(1, 2, 3)))
     return loss
 
 def reshape(a, dims):
