@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch.nn.functional as F
-import torchsummary
 from . import util
 
 class Network(nn.Module):
@@ -58,9 +57,6 @@ class Network(nn.Module):
         # Distribution Z
         self.conv_dist = nn.Conv2d(in_channels=128, out_channels=313, kernel_size=1, stride=1, padding=0, dilation=1)
 
-        # Print summary
-        torchsummary.summary(self, (1, 224, 224))
-
     def forward(self, x):
         """Performs the forward pass."""
         # Conv1
@@ -113,3 +109,8 @@ class Network(nn.Module):
         x = F.softmax(x, dim=1)
 
         return x
+
+    def summary():
+        """Prints a summary of the network."""
+        import torchsummary
+        torchsummary.summary(self, (1, 224, 224))
