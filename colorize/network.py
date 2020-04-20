@@ -3,12 +3,12 @@ import torch.nn.functional as F
 import torchsummary
 from . import util
 
-class Net(nn.Module):
+class Network(nn.Module):
     """The CNN from Colorful Image Colorization."""
 
     def __init__(self):
         """Constructor defining all layers."""
-        super(Net, self).__init__()
+        super(Network, self).__init__()
 
         # Conv1
         self.conv1_1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=1, padding=1, dilation=1)

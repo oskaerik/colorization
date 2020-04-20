@@ -128,8 +128,7 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-# Data
+# Ours
 data/n0*
-
-# Other
+*.pth
 .vscode/

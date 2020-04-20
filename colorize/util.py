@@ -114,6 +114,4 @@ def imshow(L, ab):
     ab, _ = reshape(ab, 3)
     lab = np.concatenate((L, ab), axis=2)
     rgb = color.lab2rgb(lab)
-    plt.figure()
     plt.imshow(rgb)
-    plt.show()
