@@ -146,7 +146,7 @@ def train(net, paths, device, epochs, batch_size=32, shuffle=True, num_workers=8
     net.to(device)
     optimizer = torch.optim.Adam(net.parameters())
 
-    for epoch in range(epochs):
+    for epoch in range(1, epochs + 1):
         running_loss = 0.0
         for batch, (X, Z) in tqdm(enumerate(dataloader, start=1), total=math.ceil(len(data) / batch_size)):
             X, Z = X.to(device), Z.to(device)
@@ -159,7 +159,7 @@ def train(net, paths, device, epochs, batch_size=32, shuffle=True, num_workers=8
 
             running_loss += loss.item()
 
-        print(f'Epoch: {epoch + 1}/{epochs}, Loss: {running_loss / batch}')
+        print(f'Epoch: {epoch}/{epochs}, Loss: {running_loss / batch}')
         torch.save(net.state_dict(), f'models/model_{epoch}.pth')
 
 def colorize_images(net, paths, device):
