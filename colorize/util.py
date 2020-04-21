@@ -1,8 +1,12 @@
+import math
+import warnings
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 from skimage import io, transform, color
 from sklearn.neighbors import NearestNeighbors
+from . import dataset
 
 bins = np.load('resources/bins.npy')
 Q = len(bins)
@@ -10,7 +14,6 @@ nn1 = NearestNeighbors(n_neighbors=1)
 nn1.fit(bins)
 nn5 = NearestNeighbors(n_neighbors=5)
 nn5.fit(bins)
-w = torch.tensor(np.load('resources/w.npy'))
 
 def closest_bins(Y):
     """Finds the closest bin for each pixel given two color channels Y."""
@@ -71,7 +74,7 @@ def decode(Z):
 
     return Y
 
-def multinomial_cross_entropy_loss(Z_hat, Z, eps=1e-16):
+def multinomial_cross_entropy_loss(Z_hat, Z, w, eps=1e-16):
     """Calculates the weighted multinomial cross entropy loss."""
     q_star = torch.argmax(Z, dim=1, keepdim=True)
     v = torch.take(w, q_star)
@@ -113,5 +116,66 @@ def imshow(L, ab):
     L, _ = reshape(L, 3)
     ab, _ = reshape(ab, 3)
     lab = np.concatenate((L, ab), axis=2)
+
+    # Convert back to RGB (while suppressing warnings)
+    warnings.simplefilter('ignore')
     rgb = color.lab2rgb(lab)
+    warnings.resetwarnings()
+
     plt.imshow(rgb)
+
+def side_by_side(L1, ab1, L2, ab2):
+    """Displays two images side by side."""
+    fig = plt.figure()
+    fig.add_subplot(1, 2, 1)
+    imshow(L1, ab1)
+    fig.add_subplot(1, 2, 2)
+    imshow(L2, ab2)
+    plt.show()
+
+def train(net, paths, device, epochs, batch_size=32, shuffle=True, num_workers=8):
+    """Trains a network on a set of images."""
+    data = dataset.Dataset(paths)
+    dataloader = torch.utils.data.DataLoader(data,
+                                             batch_size=batch_size,
+                                             shuffle=shuffle,
+                                             num_workers=num_workers)
+    w = torch.tensor(np.load('resources/w.npy')).to(device)
+
+    net.train()
+    net.to(device)
+    optimizer = torch.optim.Adam(net.parameters())
+
+    for epoch in range(epochs):
+        running_loss = 0.0
+        for batch, (X, Z) in tqdm(enumerate(dataloader, start=1), total=math.ceil(len(data) / batch_size)):
+            X, Z = X.to(device), Z.to(device)
+            optimizer.zero_grad()
+
+            Z_hat = net(X)
+            loss = multinomial_cross_entropy_loss(Z_hat, Z, w)
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+
+        print(f'Epoch: {epoch + 1}/{epochs}, Loss: {running_loss / batch}')
+        torch.save(net.state_dict(), f'models/model_{epoch}.pth')
+
+def colorize_images(net, paths, device):
+    """Trains a network on a set of images."""
+    data = dataset.Dataset(paths)
+    dataloader = torch.utils.data.DataLoader(data)
+    w = torch.tensor(np.load('resources/w.npy')).to(device)
+
+    net.eval()
+    net.to(device)
+
+    for X, Z in dataloader:
+        X, Z = X.to(device), Z.to(device)
+        Z_hat = net(X)
+
+        L = X.cpu().data.numpy() * 50 + 50
+        ab_gt = transform.resize(decode(reshape(Z.cpu().data.numpy(), 3)[0]), (224, 224))
+        ab_pred = transform.resize(decode(reshape(Z_hat.cpu().data.numpy(), 3)[0]), (224, 224))
+        side_by_side(L, ab_gt, L, ab_pred)

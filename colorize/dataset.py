@@ -1,3 +1,4 @@
+import numpy as np
 from skimage import transform
 from torch.utils import data
 from . import util
@@ -27,7 +28,7 @@ class Dataset(data.Dataset):
         Z = util.soft_encode(Y)
 
         # Reshape to PyTorch style
-        X = X.transpose(2, 0, 1).astype('float32')
-        Z = Z.transpose(2, 0, 1).astype('float32')
+        X = X.transpose(2, 0, 1).astype(np.float32)
+        Z = Z.transpose(2, 0, 1).astype(np.float32)
 
         return X, Z

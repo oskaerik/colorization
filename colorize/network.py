@@ -57,60 +57,79 @@ class Network(nn.Module):
         # Distribution Z
         self.conv_dist = nn.Conv2d(in_channels=128, out_channels=313, kernel_size=1, stride=1, padding=0, dilation=1)
 
-    def forward(self, x):
+    def forward(self, x, summary=False):
         """Performs the forward pass."""
         # Conv1
+        if summary: print('Input:\t\t', x.shape)
         x = F.relu(self.conv1_1(x))
+        if summary: print('Conv1_1:\t', x.shape)
         x = F.relu(self.conv1_2(x))
+        if summary: print('Conv1_2:\t', x.shape)
         x = self.conv1_norm(x)
 
         # Conv2
         x = F.relu(self.conv2_1(x))
+        if summary: print('Conv2_1:\t', x.shape)
         x = F.relu(self.conv2_2(x))
+        if summary: print('Conv2_2:\t', x.shape)
         x = self.conv2_norm(x)
 
         # Conv3
         x = F.relu(self.conv3_1(x))
+        if summary: print('Conv3_1:\t', x.shape)
         x = F.relu(self.conv3_2(x))
+        if summary: print('Conv3_2:\t', x.shape)
         x = F.relu(self.conv3_3(x))
+        if summary: print('Conv3_3:\t', x.shape)
         x = self.conv3_norm(x)
 
         # Conv4
         x = F.relu(self.conv4_1(x))
+        if summary: print('Conv4_1:\t', x.shape)
         x = F.relu(self.conv4_2(x))
+        if summary: print('Conv4_2:\t', x.shape)
         x = F.relu(self.conv4_3(x))
+        if summary: print('Conv4_3:\t', x.shape)
         x = self.conv4_norm(x)
 
         # Conv5
         x = F.relu(self.conv5_1(x))
+        if summary: print('Conv5_1:\t', x.shape)
         x = F.relu(self.conv5_2(x))
+        if summary: print('Conv5_2:\t', x.shape)
         x = F.relu(self.conv5_3(x))
+        if summary: print('Conv5_3:\t', x.shape)
         x = self.conv5_norm(x)
 
         # Conv6
         x = F.relu(self.conv6_1(x))
+        if summary: print('Conv6_1:\t', x.shape)
         x = F.relu(self.conv6_2(x))
+        if summary: print('Conv6_2:\t', x.shape)
         x = F.relu(self.conv6_3(x))
+        if summary: print('Conv6_3:\t', x.shape)
         x = self.conv6_norm(x)
 
         # Conv7
         x = F.relu(self.conv7_1(x))
+        if summary: print('Conv7_1:\t', x.shape)
         x = F.relu(self.conv7_2(x))
+        if summary: print('Conv7_2:\t', x.shape)
         x = F.relu(self.conv7_3(x))
+        if summary: print('Conv7_3:\t', x.shape)
         x = self.conv7_norm(x)
 
         # Conv8
         x = F.relu(self.conv8_1(x))
+        if summary: print('Conv8_1:\t', x.shape)
         x = F.relu(self.conv8_2(x))
+        if summary: print('Conv8_2:\t', x.shape)
         x = F.relu(self.conv8_3(x))
+        if summary: print('Conv8_3:\t', x.shape)
 
         # Distribution Z
         x = self.conv_dist(x)
+        if summary: print('Conv_dist:\t', x.shape)
         x = F.softmax(x, dim=1)
 
         return x
-
-    def summary():
-        """Prints a summary of the network."""
-        import torchsummary
-        torchsummary.summary(self, (1, 224, 224))
