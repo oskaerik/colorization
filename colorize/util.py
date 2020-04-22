@@ -1,8 +1,11 @@
+import sys
 import math
+import time
 import warnings
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from datetime import datetime
 from tqdm import tqdm
 from skimage import io, transform, color
 from sklearn.neighbors import NearestNeighbors
@@ -133,8 +136,18 @@ def side_by_side(L1, ab1, L2, ab2):
     imshow(L2, ab2)
     plt.show()
 
-def train(net, paths, device, epochs, batch_size=32, shuffle=True, num_workers=8):
+def train(net, paths, device, epochs, log=True, batch_size=32, shuffle=True, num_workers=8):
     """Trains a network on a set of images."""
+
+    def logger(string):
+        """Prints to stdout and log file."""
+        string = ''.join(['[', str(datetime.now()), '] ', str(string)])
+        print(string)
+        print(string, file=log_file, flush=True)
+
+    log_file = open(f'logs/log_{int(time.time() * 1000)}.txt', 'w')
+    logger(f'Opened log file: {log_file.name}')
+
     data = dataset.Dataset(paths)
     dataloader = torch.utils.data.DataLoader(data,
                                              batch_size=batch_size,
@@ -159,8 +172,10 @@ def train(net, paths, device, epochs, batch_size=32, shuffle=True, num_workers=8
 
             running_loss += loss.item()
 
-        print(f'Epoch: {epoch}/{epochs}, Loss: {running_loss / batch}')
+        logger(f'Epoch: {epoch}/{epochs}, Loss: {running_loss / batch}')
         torch.save(net.state_dict(), f'models/model_{epoch}.pth')
+
+    log_file.close()
 
 def colorize_images(net, paths, device):
     """Trains a network on a set of images."""

@@ -132,3 +132,4 @@ dmypy.json
 data/n0*
 *.pth
 .vscode/
+logs/*.txt
