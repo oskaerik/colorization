@@ -157,7 +157,7 @@ def train(net, paths, device, epochs, log=True, batch_size=32, shuffle=True, num
 
     net.train()
     net.to(device)
-    optimizer = torch.optim.Adam(net.parameters())
+    optimizer = torch.optim.Adam(net.parameters(), lr=3*10**-5, betas=(0.9, 0.99), weight_decay=10**-3)
 
     for epoch in range(1, epochs + 1):
         running_loss = 0.0
