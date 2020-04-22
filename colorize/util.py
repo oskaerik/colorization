@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from datetime import datetime
 from tqdm import tqdm
+from scipy.special import softmax
 from skimage import io, transform, color
 from sklearn.neighbors import NearestNeighbors
 from . import dataset
@@ -17,6 +18,8 @@ nn1 = NearestNeighbors(n_neighbors=1)
 nn1.fit(bins)
 nn5 = NearestNeighbors(n_neighbors=5)
 nn5.fit(bins)
+input_size = (224, 224)
+eps = 1e-16
 
 def closest_bins(Y):
     """Finds the closest bin for each pixel given two color channels Y."""
@@ -61,23 +64,30 @@ def soft_encode(Y, sigma=5, debug=False):
 
     return Z
 
-def decode(Z):
+def decode(Z, strategy='annealed_mean', T=0.38):
     """Converts probability distribution Z to two color channels Y."""
     Z, reshaped = reshape(Z, 3)
 
-    # TODO: Implement annealed-mean
-    mode = Z.argmax(axis=2)
-    Y = np.zeros((*mode.shape, 2))
-    for i in range(Y.shape[0]):
-        for j in range(Y.shape[1]):
-            Y[i,j,:] = bins[mode[i,j]]
+    if strategy == 'annealed_mean':
+        Z = softmax(np.log(Z + eps) / T, axis=2)
+    elif strategy == 'mode':
+        # One-hot to the most probable bin for each pixel
+        Z = np.eye(Z.shape[2])[Z.argmax(axis=2)]
+    elif strategy == 'expected_value':
+        # Do nothing if we want expected value
+        pass
+    else:
+        raise Exception(f'Invalid strategy (use "annealed mean", "mode" or "expected"): {strategy}')
+
+    # Weight each bin proportionally to its probability
+    Y = (bins * Z[...,np.newaxis]).sum(axis=2)
 
     if reshaped:
         Y, _ = reshape(Y, 4)
 
     return Y
 
-def multinomial_cross_entropy_loss(Z_hat, Z, w, eps=1e-16):
+def multinomial_cross_entropy_loss(Z_hat, Z, w):
     """Calculates the weighted multinomial cross entropy loss."""
     q_star = torch.argmax(Z, dim=1, keepdim=True)
     v = torch.take(w, q_star)
@@ -101,7 +111,7 @@ def reshape(a, dims):
 
     return a, True
 
-def imread(path, size=(224, 224)):
+def imread(path, size=input_size):
     """Reads and resizes an image, returns Lab channels."""
     # Read image as RGB (drop alpha channel if it exists) and resize
     rgb = io.imread(path)[:,:,:3]
@@ -126,14 +136,16 @@ def imshow(L, ab):
     warnings.resetwarnings()
 
     plt.imshow(rgb)
+    plt.axis('off')
 
-def side_by_side(L1, ab1, L2, ab2):
+def side_by_side(*args):
     """Displays two images side by side."""
-    fig = plt.figure()
-    fig.add_subplot(1, 2, 1)
-    imshow(L1, ab1)
-    fig.add_subplot(1, 2, 2)
-    imshow(L2, ab2)
+    fig = plt.figure(figsize=(len(args)*4, len(args)*2))
+    for i, arg in enumerate(args, start=1):
+        L, ab, title = arg
+        ax = fig.add_subplot(1, len(args), i)
+        imshow(L, ab)
+        ax.set_title(title)
     plt.show()
 
 def train(net, paths, device, epochs, log=True, batch_size=32, shuffle=True, num_workers=8):
@@ -187,10 +199,18 @@ def colorize_images(net, paths, device):
     net.to(device)
 
     for X, Z in dataloader:
+        # Colorize
         X, Z = X.to(device), Z.to(device)
         Z_hat = net(X)
 
+        # Unnormalize, decode, transform and show images
         L = X.cpu().data.numpy() * 50 + 50
-        ab_gt = transform.resize(decode(reshape(Z.cpu().data.numpy(), 3)[0]), (224, 224))
-        ab_pred = transform.resize(decode(reshape(Z_hat.cpu().data.numpy(), 3)[0]), (224, 224))
-        side_by_side(L, ab_gt, L, ab_pred)
+        Z, Z_hat = reshape(Z.cpu().data.numpy(), 3)[0], reshape(Z_hat.cpu().data.numpy(), 3)[0]
+        ab_gt = transform.resize(decode(Z, strategy='mode'), input_size)
+        ab_annealed = transform.resize(decode(Z_hat, strategy='annealed_mean'), input_size)
+        ab_mode = transform.resize(decode(Z_hat, strategy='mode'), input_size)
+        ab_expected = transform.resize(decode(Z_hat, strategy='expected_value'), input_size)
+        side_by_side((L, ab_gt, 'Ground truth'),
+                     (L, ab_annealed, 'Annealed-mean'),
+                     (L, ab_mode, 'Mode'),
+                     (L, ab_expected, 'Expected value'))
