@@ -184,7 +184,7 @@ def train(net, paths, device, epochs, start_epoch=1, batch_size=32, shuffle=True
 
             running_loss += loss.item()
 
-        logger(f'Epoch: {epoch}/{epochs}, Loss: {running_loss / batch}')
+        logger(f'Epoch: {epoch}/{epochs + start_epoch - 1}, Loss: {running_loss / batch}')
         torch.save(net.state_dict(), f'models/model_{epoch}.pth')
 
     log_file.close()
