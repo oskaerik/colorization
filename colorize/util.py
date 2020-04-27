@@ -148,7 +148,7 @@ def side_by_side(*args):
         ax.set_title(title)
     plt.show()
 
-def train(net, paths, device, epochs, log=True, batch_size=32, shuffle=True, num_workers=8):
+def train(net, paths, device, epochs, start_epoch=1, batch_size=32, shuffle=True, num_workers=8, log=True):
     """Trains a network on a set of images."""
 
     def logger(string):
@@ -171,7 +171,7 @@ def train(net, paths, device, epochs, log=True, batch_size=32, shuffle=True, num
     net.to(device)
     optimizer = torch.optim.Adam(net.parameters(), lr=3*10**-5, betas=(0.9, 0.99), weight_decay=10**-3)
 
-    for epoch in range(1, epochs + 1):
+    for epoch in range(start_epoch, epochs + start_epoch):
         running_loss = 0.0
         for batch, (X, Z) in tqdm(enumerate(dataloader, start=1), total=math.ceil(len(data) / batch_size)):
             X, Z = X.to(device), Z.to(device)
@@ -184,7 +184,7 @@ def train(net, paths, device, epochs, log=True, batch_size=32, shuffle=True, num
 
             running_loss += loss.item()
 
-        logger(f'Epoch: {epoch}/{epochs}, Loss: {running_loss / batch}')
+        logger(f'Epoch: {epoch}/{epochs + start_epoch - 1}, Loss: {running_loss / batch}')
         torch.save(net.state_dict(), f'models/model_{epoch}.pth')
 
     log_file.close()
