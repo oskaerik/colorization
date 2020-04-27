@@ -3,8 +3,9 @@ from skimage.io import imread
 from scipy.io import loadmat
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from ranges import ranges
 
-DOG_IMAGES_FOLER = 'dog_images'
+DOG_IMAGES_FOLER = 'dog_images/'
 
 def index_str(index):
     """Given the frame index of a dog video, get the corresponding index string for the .jpg image"""
@@ -20,8 +21,12 @@ def output_video(img_array, filename):
 
 def load_videos(ranges):
     """Given an array of shot ranges with size (shot, start, end), load all the videos into an array"""
-    return np.array([[imread(DOG_IMAGES_FOLER + index_str(index) + '.jpg')  for index in range(start, end + 1)] for shot, start, end in ranges])
+    return np.array([[imread(DOG_IMAGES_FOLER + index_str(index) + '.jpg')  for index in range(start, end + 1)] for _, start, end in ranges])
 
-    
-
-
+for i, (_, start, end) in enumerate(ranges):
+    print(i)
+    img_array = [imread(DOG_IMAGES_FOLER + index_str(index) + '.jpg')  for index in range(start, end + 1)]
+    fig = plt.figure()
+    imgs = [[plt.imshow(img, animated=True)] for img in img_array]
+    ani = animation.ArtistAnimation(fig, imgs, interval=33.3)
+    ani.save(f'{i}.mp4')
