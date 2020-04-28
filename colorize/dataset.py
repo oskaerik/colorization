@@ -17,18 +17,26 @@ class Dataset(data.Dataset):
 
     def __getitem__(self, index):
         """Returns a sample."""
-        # Load image
-        X, Y = util.imread(self.paths[index])
+        try:
+            # Load image
+            X, Y = util.imread(self.paths[index])
 
-        # Normalize X between -1 and 1
-        X = (X - 50) / 50
+            # Normalize X between -1 and 1
+            X = (X - 50) / 50
 
-        # Resize and encode
-        Y = transform.resize(Y, self.out_size)
-        Z = util.soft_encode(Y)
+            # Resize and encode
+            Y = transform.resize(Y, self.out_size)
+            Z = util.soft_encode(Y)
 
-        # Reshape to PyTorch style
-        X = X.transpose(2, 0, 1).astype(np.float32)
-        Z = Z.transpose(2, 0, 1).astype(np.float32)
+            # Reshape to PyTorch style
+            X = X.transpose(2, 0, 1).astype(np.float32)
+            Z = Z.transpose(2, 0, 1).astype(np.float32)
 
-        return X, Z
+            return X, Z
+        except:
+            return None
+
+def collate_fn(batch):
+    """Filter out None values from the batch."""
+    batch = [x for x in batch if x is not None]
+    return torch.utils.data.dataloader.default_collate(batch)
