@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
 from datetime import datetime
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 from scipy.special import softmax
 from skimage import io, transform, color
 from sklearn.neighbors import NearestNeighbors
