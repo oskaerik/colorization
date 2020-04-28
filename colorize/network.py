@@ -1,13 +1,14 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from . import util
 
-class Network(nn.Module):
+class CNN(nn.Module):
     """The CNN from Colorful Image Colorization."""
 
     def __init__(self):
         """Constructor defining all layers."""
-        super(Network, self).__init__()
+        super(CNN, self).__init__()
 
         # Conv1
         self.conv1_1 = nn.Conv2d(in_channels=1, out_channels=64, kernel_size=3, stride=1, padding=1, dilation=1)
@@ -57,7 +58,7 @@ class Network(nn.Module):
         # Distribution Z
         self.conv_dist = nn.Conv2d(in_channels=128, out_channels=313, kernel_size=1, stride=1, padding=0, dilation=1)
 
-    def forward(self, x, summary=False):
+    def forward(self, x, distribution=True, summary=False):
         """Performs the forward pass."""
         # Conv1
         if summary: print('Input:\t\t', x.shape)
@@ -128,8 +129,37 @@ class Network(nn.Module):
         if summary: print('Conv8_3:\t', x.shape)
 
         # Distribution Z
-        x = self.conv_dist(x)
-        if summary: print('Conv_dist:\t', x.shape)
-        x = F.softmax(x, dim=1)
+        if distribution:
+            x = self.conv_dist(x)
+            if summary: print('Conv_dist:\t', x.shape)
+            x = F.softmax(x, dim=1)
 
         return x
+
+class RNN(nn.Module):
+    """The RNN for video colorization."""
+
+    def __init__(self, hidden_size, input_size=56*56*128, output_size=56*56*313, num_layers=1):
+        """Constructor defining all layers."""
+        super(RNN, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+
+        self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size, num_layers=num_layers)
+        self.fc = nn.Linear(in_features=hidden_size, out_features=output_size)
+
+    def zero_state(self, device, batch_size=1):
+        """Returns a blank state."""
+        hidden_state = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device)
+        cell_state = torch.zeros(self.num_layers, batch_size, self.hidden_size).to(device)
+        hidden = (hidden_state, cell_state)
+        return hidden
+
+    def forward(self, x, hidden):
+        """Performs the forward pass."""
+        x, hidden = self.lstm(x, hidden)
+        x = self.fc(x)
+        x = x.reshape(-1, 313, 56, 56)
+        x = F.softmax(x, dim=1)
+        return x, hidden

@@ -1,10 +1,11 @@
-import sys
+import os
 import math
 import time
 import warnings
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import animation
 from datetime import datetime
 from tqdm import tqdm
 from scipy.special import softmax
@@ -124,18 +125,19 @@ def imread(path, size=input_size):
 
     return L, ab
 
-def imshow(L, ab):
-    """Displays an image, takes Lab channels."""
+def lab2rgb(L, ab):
+    """Converts L and ab channels to RGB."""
     L, _ = reshape(L, 3)
     ab, _ = reshape(ab, 3)
     lab = np.concatenate((L, ab), axis=2)
-
-    # Convert back to RGB (while suppressing warnings)
     warnings.simplefilter('ignore')
     rgb = color.lab2rgb(lab)
     warnings.resetwarnings()
+    return rgb
 
-    plt.imshow(rgb)
+def imshow(L, ab):
+    """Displays an image, takes Lab channels."""
+    plt.imshow(lab2rgb(L, ab))
     plt.axis('off')
 
 def side_by_side(*args):
@@ -148,49 +150,87 @@ def side_by_side(*args):
         ax.set_title(title)
     plt.show()
 
-def train(net, paths, device, epochs, start_epoch=1, batch_size=32, shuffle=True, num_workers=8, log=True):
-    """Trains a network on a set of images."""
+def log(s, log_file):
+    """Prints to stdout and log file."""
+    s = f'[{datetime.now()}] {s}'
+    print(s)
+    print(s, file=log_file, flush=True)
 
-    def logger(string):
-        """Prints to stdout and log file."""
-        string = ''.join(['[', str(datetime.now()), '] ', str(string)])
-        print(string)
-        print(string, file=log_file, flush=True)
+def train_cnn(cnn, paths, device, epochs, start_epoch=1, batch_size=32, shuffle=True, num_workers=8):
+    """Trains a CNN on a set of images."""
+    with open(f'logs/log_{int(time.time() * 1000)}.txt', 'w') as log_file:
+        log(f'Opened log file: {log_file.name}', log_file)
+        cnn.train()
+        cnn.to(device)
+        optimizer = torch.optim.Adam(cnn.parameters(), lr=3*10**-5, betas=(0.9, 0.99), weight_decay=10**-3)
+        w = torch.tensor(np.load('resources/w.npy')).to(device)
 
-    log_file = open(f'logs/log_{int(time.time() * 1000)}.txt', 'w')
-    logger(f'Opened log file: {log_file.name}')
+        data = dataset.Dataset(paths)
+        dataloader = torch.utils.data.DataLoader(data,
+                                                batch_size=batch_size,
+                                                shuffle=shuffle,
+                                                num_workers=num_workers)
 
-    data = dataset.Dataset(paths)
-    dataloader = torch.utils.data.DataLoader(data,
-                                             batch_size=batch_size,
-                                             shuffle=shuffle,
-                                             num_workers=num_workers)
-    w = torch.tensor(np.load('resources/w.npy')).to(device)
 
-    net.train()
-    net.to(device)
-    optimizer = torch.optim.Adam(net.parameters(), lr=3*10**-5, betas=(0.9, 0.99), weight_decay=10**-3)
+        for epoch in range(start_epoch, epochs + start_epoch):
+            running_loss = 0.0
+            for batch, (X, Z) in tqdm(enumerate(dataloader, start=1), total=math.ceil(len(data) / batch_size)):
+                X, Z = X.to(device), Z.to(device)
+                optimizer.zero_grad()
 
-    for epoch in range(start_epoch, epochs + start_epoch):
-        running_loss = 0.0
-        for batch, (X, Z) in tqdm(enumerate(dataloader, start=1), total=math.ceil(len(data) / batch_size)):
-            X, Z = X.to(device), Z.to(device)
-            optimizer.zero_grad()
+                Z_hat = cnn(X)
+                loss = multinomial_cross_entropy_loss(Z_hat, Z, w)
+                loss.backward()
+                optimizer.step()
 
-            Z_hat = net(X)
-            loss = multinomial_cross_entropy_loss(Z_hat, Z, w)
-            loss.backward()
-            optimizer.step()
+                running_loss += loss.item()
 
-            running_loss += loss.item()
+            log(f'Epoch: {epoch}/{epochs + start_epoch - 1}, Loss: {running_loss / batch}', log_file)
+            torch.save(cnn.state_dict(), f'models/cnn_{epoch}.pth')
 
-        logger(f'Epoch: {epoch}/{epochs + start_epoch - 1}, Loss: {running_loss / batch}')
-        torch.save(net.state_dict(), f'models/model_{epoch}.pth')
+def train_rnn(rnn, cnn, video_paths, device, epochs, start_epoch=1, seq_len=32, num_workers=8):
+    """Trains an RNN on a set of videos."""
+    with open(f'logs/log_{int(time.time() * 1000)}.txt', 'w') as log_file:
+        log(f'Opened log file: {log_file.name}', log_file)
+        rnn.train()
+        cnn.eval()
+        rnn.to(device)
+        cnn.to(device)
+        optimizer = torch.optim.Adam(rnn.parameters())
+        w = torch.tensor(np.load('resources/w.npy')).to(device)
 
-    log_file.close()
+        for epoch in range(start_epoch, epochs + start_epoch):
+            running_loss = 0.0
+            batch = 0
+
+            for paths in video_paths:
+                hidden = rnn.zero_state(device)
+
+                data = dataset.Dataset(paths)
+                dataloader = torch.utils.data.DataLoader(data,
+                                                         batch_size=seq_len,
+                                                         num_workers=num_workers)
+
+                for X, Z in tqdm(dataloader, total=math.ceil(len(data) / seq_len)):
+                    X, Z = X.to(device), Z.to(device)
+                    X = cnn(X, distribution=False)
+                    X = X.reshape(X.shape[0], 1, -1)
+                    optimizer.zero_grad()
+
+                    Z_hat, hidden = rnn(X, hidden)
+                    loss = multinomial_cross_entropy_loss(Z_hat, Z, w)
+                    loss.backward()
+                    optimizer.step()
+                    hidden = tuple(h.detach() for h in hidden)
+
+                    running_loss += loss.item()
+                    batch += 1
+
+            log(f'Epoch: {epoch}/{epochs + start_epoch - 1}, Loss: {running_loss / batch}', log_file)
+            torch.save(rnn.state_dict(), f'models/rnn_{epoch}.pth')
 
 def colorize_images(net, paths, device):
-    """Trains a network on a set of images."""
+    """Colorizes a set of images."""
     data = dataset.Dataset(paths)
     dataloader = torch.utils.data.DataLoader(data)
     w = torch.tensor(np.load('resources/w.npy')).to(device)
@@ -214,3 +254,52 @@ def colorize_images(net, paths, device):
                      (L, ab_annealed, 'Annealed-mean'),
                      (L, ab_mode, 'Mode'),
                      (L, ab_expected, 'Expected value'))
+
+def colorize_video(rnn, cnn, paths, device, strategy='annealed_mean'):
+    """Colorizes a set of video frames. Set rnn=None to use the CNN frame-by-frame."""
+    data = dataset.Dataset(paths)
+    dataloader = torch.utils.data.DataLoader(data)
+    w = torch.tensor(np.load('resources/w.npy')).to(device)
+
+    if rnn is not None:
+        rnn.eval()
+        rnn.to(device)
+        hidden = rnn.zero_state(device)
+    cnn.eval()
+    cnn.to(device)
+
+    gt, colorized = [], []
+    for X, Z in tqdm(dataloader, total=len(data)):
+        # Unnomalize
+        L = X.cpu().data.numpy() * 50 + 50
+
+        # Colorize
+        X, Z = X.to(device), Z.to(device)
+        if rnn is not None:
+            X = cnn(X, distribution=False)
+            X = X.reshape(X.shape[0], 1, -1)
+            Z_hat, hidden = rnn(X, hidden)
+        else:
+            Z_hat = cnn(X)
+
+        # Decode, transform and show images
+        Z, Z_hat = reshape(Z.cpu().data.numpy(), 3)[0], reshape(Z_hat.cpu().data.numpy(), 3)[0]
+        ab_gt = transform.resize(decode(Z, strategy='mode'), input_size)
+        ab_colorized = transform.resize(decode(Z_hat, strategy=strategy), input_size)
+
+        # Save frame
+        gt.append(lab2rgb(L, ab_gt))
+        colorized.append(lab2rgb(L, ab_colorized))
+    return gt, colorized
+
+def video_paths(directory, start, end):
+    """Returns a list of image paths for a video given its directory, start and end."""
+    return [os.path.join(directory, f'{index:08d}.jpg') for index in range(start, end + 1)]
+
+def animate(frames, fps=30):
+    """Animates frames."""
+    fig = plt.figure()
+    imgs = [[plt.imshow(frame, animated=True)] for frame in frames]
+    ani = animation.ArtistAnimation(fig, imgs, blit=True, interval=1000/fps)
+    plt.close()
+    return ani

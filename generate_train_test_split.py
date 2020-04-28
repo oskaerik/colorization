@@ -1,7 +1,7 @@
 import os
 import glob
 
-images = glob.glob("data/**/*.jpg", recursive=True)
+images = glob.glob("data/Images/**/*.jpg", recursive=True)
 classes, train, test = dict(), dict(), dict()
 n = 5
 
