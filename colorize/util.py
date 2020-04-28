@@ -203,7 +203,7 @@ def train_rnn(rnn, cnn, video_paths, device, epochs, start_epoch=1, seq_len=32, 
             running_loss = 0.0
             batch = 0
 
-            for paths in video_paths:
+            for paths in tqdm(video_paths, desc='Video'):
                 hidden = rnn.zero_state(device)
 
                 data = dataset.Dataset(paths)
@@ -211,7 +211,7 @@ def train_rnn(rnn, cnn, video_paths, device, epochs, start_epoch=1, seq_len=32, 
                                                          batch_size=seq_len,
                                                          num_workers=num_workers)
 
-                for X, Z in tqdm(dataloader, total=math.ceil(len(data) / seq_len)):
+                for X, Z in tqdm(dataloader, desc='Frame', total=math.ceil(len(data) / seq_len)):
                     X, Z = X.to(device), Z.to(device)
                     X = cnn(X, distribution=False)
                     X = X.reshape(X.shape[0], 1, -1)
