@@ -170,7 +170,7 @@ def train_cnn(cnn, paths, device, epochs, start_epoch=1, batch_size=32, shuffle=
                                                 batch_size=batch_size,
                                                 shuffle=shuffle,
                                                 num_workers=num_workers,
-                                                collate_fn=collate_fn)
+                                                collate_fn=dataset.collate_fn)
 
         for epoch in range(start_epoch, epochs + start_epoch):
             running_loss = 0.0
@@ -210,7 +210,7 @@ def train_rnn(rnn, cnn, video_paths, device, epochs, start_epoch=1, seq_len=32, 
                 dataloader = torch.utils.data.DataLoader(data,
                                                          batch_size=seq_len,
                                                          num_workers=num_workers,
-                                                         collate_fn=collate_fn)
+                                                         collate_fn=dataset.collate_fn)
 
                 for X, Z in tqdm(dataloader, desc='Frame', total=math.ceil(len(data) / seq_len), leave=False):
                     X, Z = X.to(device), Z.to(device)
@@ -233,7 +233,7 @@ def train_rnn(rnn, cnn, video_paths, device, epochs, start_epoch=1, seq_len=32, 
 def colorize_images(net, paths, device):
     """Colorizes a set of images."""
     data = dataset.Dataset(paths)
-    dataloader = torch.utils.data.DataLoader(data, collate_fn=collate_fn)
+    dataloader = torch.utils.data.DataLoader(data, collate_fn=dataset.collate_fn)
     w = torch.tensor(np.load('resources/w.npy')).to(device)
 
     net.eval()
@@ -259,7 +259,7 @@ def colorize_images(net, paths, device):
 def colorize_video(rnn, cnn, paths, device, strategy='annealed_mean'):
     """Colorizes a set of video frames. Set rnn=None to use the CNN frame-by-frame."""
     data = dataset.Dataset(paths)
-    dataloader = torch.utils.data.DataLoader(data, collate_fn=collate_fn)
+    dataloader = torch.utils.data.DataLoader(data, collate_fn=dataset.collate_fn)
     w = torch.tensor(np.load('resources/w.npy')).to(device)
 
     if rnn is not None:
