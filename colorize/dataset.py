@@ -1,3 +1,4 @@
+import torch
 import numpy as np
 from skimage import transform
 from torch.utils import data
