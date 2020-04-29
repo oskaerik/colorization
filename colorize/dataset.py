@@ -36,8 +36,3 @@ class Dataset(data.Dataset):
             return X, Z
         except:
             return None
-
-def collate_fn(batch):
-    """Filter out None values from the batch."""
-    batch = [x for x in batch if x is not None]
-    return torch.utils.data.dataloader.default_collate(batch)
