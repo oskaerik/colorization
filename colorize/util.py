@@ -114,9 +114,12 @@ def reshape(a, dims):
 
 def imread(path, size=input_size):
     """Reads and resizes an image, returns Lab channels."""
-    # Read image as RGB (drop alpha channel if it exists) and resize
+    # Read image as RGB (drop alpha channel if it exists)
     rgb = io.imread(path)[:,:,:3]
-    rgb = transform.resize(rgb, size)
+
+    if size is not None:
+        # Resize
+        rgb = transform.resize(rgb, size)
 
     # Convert to Lab and split into L and ab channels
     lab = color.rgb2lab(rgb)
@@ -228,7 +231,7 @@ def train_rnn(rnn, cnn, video_paths, device, epochs, start_epoch=1, seq_len=32, 
             log(f'Epoch: {epoch}/{epochs + start_epoch - 1}, Loss: {running_loss / batch}', log_file)
             torch.save(rnn.state_dict(), f'models/rnn_{epoch}.pth')
 
-def colorize_images(net, paths, device):
+def colorize_images(net, paths, device, show_mode_expected=False):
     """Colorizes a set of images."""
     data = dataset.Dataset(paths)
     dataloader = torch.utils.data.DataLoader(data)
@@ -249,12 +252,13 @@ def colorize_images(net, paths, device):
         ab_annealed = transform.resize(decode(Z_hat, strategy='annealed_mean'), input_size)
         ab_mode = transform.resize(decode(Z_hat, strategy='mode'), input_size)
         ab_expected = transform.resize(decode(Z_hat, strategy='expected_value'), input_size)
-        side_by_side((L, ab_gt, 'Ground truth'),
-                     (L, ab_annealed, 'Annealed-mean'),
-                     (L, ab_mode, 'Mode'),
-                     (L, ab_expected, 'Expected value'))
+        side_by_side((L, ab_gt, 'Original'),
+                     (L, np.zeros_like(ab_gt), 'Input'),
+                     (L, ab_annealed, 'Annealed-mean'))
+                     #(L, ab_mode, 'Mode'),
+                     #(L, ab_expected, 'Expected value'))
 
-def colorize_video(rnn, cnn, paths, device, strategy='annealed_mean'):
+def colorize_video(rnn, cnn, paths, device, strategy='annealed_mean', gamma=0.5):
     """Colorizes a set of video frames. Set rnn=None to use the CNN frame-by-frame."""
     data = dataset.Dataset(paths)
     dataloader = torch.utils.data.DataLoader(data)
@@ -267,7 +271,8 @@ def colorize_video(rnn, cnn, paths, device, strategy='annealed_mean'):
     cnn.eval()
     cnn.to(device)
 
-    gt, colorized = [], []
+    gt, colorized, tc = [], [], []
+    Z_hat_tc = None
     for X, Z in tqdm(dataloader, total=len(data)):
         # Unnomalize
         L = X.cpu().data.numpy() * 50 + 50
@@ -281,15 +286,19 @@ def colorize_video(rnn, cnn, paths, device, strategy='annealed_mean'):
         else:
             Z_hat = cnn(X)
 
+        # Temporal coherence
+        Z_hat_tc = gamma * Z_hat + (1 - gamma) * Z_hat_tc if Z_hat_tc is not None else Z_hat
+
         # Decode, transform and show images
-        Z, Z_hat = reshape(Z.cpu().data.numpy(), 3)[0], reshape(Z_hat.cpu().data.numpy(), 3)[0]
-        ab_gt = transform.resize(decode(Z, strategy='mode'), input_size)
-        ab_colorized = transform.resize(decode(Z_hat, strategy=strategy), input_size)
+        ab_gt = transform.resize(decode(reshape(Z.cpu().data.numpy(), 3)[0], strategy='mode'), input_size)
+        ab_colorized = transform.resize(decode(reshape(Z_hat.cpu().data.numpy(), 3)[0], strategy=strategy), input_size)
+        ab_tc = transform.resize(decode(reshape(Z_hat_tc.cpu().data.numpy(), 3)[0], strategy=strategy), input_size)
 
         # Save frame
         gt.append(lab2rgb(L, ab_gt))
         colorized.append(lab2rgb(L, ab_colorized))
-    return gt, colorized
+        tc.append(lab2rgb(L, ab_tc))
+    return gt, colorized, tc
 
 def video_paths(directory, start, end):
     """Returns a list of image paths for a video given its directory, start and end."""
@@ -298,6 +307,7 @@ def video_paths(directory, start, end):
 def animate(frames, fps=30):
     """Animates frames."""
     fig = plt.figure()
+    plt.axis('off')
     imgs = [[plt.imshow(frame, animated=True)] for frame in frames]
     ani = animation.ArtistAnimation(fig, imgs, blit=True, interval=1000/fps)
     plt.close()

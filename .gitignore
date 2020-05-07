@@ -131,6 +131,9 @@ dmypy.json
 # Ours
 data/Images/
 data/dog/
-*.pth
+out/
 .vscode/
+*.pth
+*.png
+*.xcf
 logs/*.txt
