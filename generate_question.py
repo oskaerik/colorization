@@ -1,5 +1,6 @@
 import os
 import warnings
+import pickle
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
@@ -33,6 +34,8 @@ if __name__ == '__main__':
     # Set a/b order, if order=0 then coco has index 0, and if order=1 then coco has index 1
     order = np.random.randint(2, size=len(args.images))
     np.save(os.path.join(args.out_dir, 'order.npy'), order)
+    with open(os.path.join(args.out_dir, 'images.pkl'), 'wb') as f:
+        pickle.dump(args.images, f)
     letters = ['a', 'b']
 
     for i, image in tqdm(enumerate(args.images), total=len(args.images)):
@@ -63,3 +66,4 @@ if __name__ == '__main__':
             plt.axis('off')
             ax.set_title(letters[j], fontsize=36)
         fig.savefig(os.path.join(args.out_dir, f'{i:04d}_question.png'), bbox_inches='tight')
+        plt.close()
