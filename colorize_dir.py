@@ -22,16 +22,13 @@ class Dataset(torch.utils.data.Dataset):
         path = self.paths[index]
         L, Y = util.imread(path, size=None)
         X = (transform.resize(L.copy(), self.in_size) - 50) / 50
-        Z = util.soft_encode(transform.resize(Y, self.in_size))
         X = X.transpose(2, 0, 1).astype(np.float32)
-        Z = Z.transpose(2, 0, 1).astype(np.float32)
-        return X, Z, L, path
+        return X, L, path
 
 def collate_fn(batch):
-    Xs, Zs, Ls, paths = zip(*batch)
+    Xs, Ls, paths = zip(*batch)
     Xs = torch.utils.data.dataloader.default_collate(Xs)
-    Zs = torch.utils.data.dataloader.default_collate(Zs)
-    return Xs, Zs, Ls, paths
+    return Xs, Ls, paths
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='Copies a directory structure with colorized images.')
@@ -67,7 +64,8 @@ if __name__ == '__main__':
                                             num_workers=8,
                                             collate_fn=collate_fn)
 
-    for batch, (Xs, Zs, Ls, paths) in tqdm(enumerate(dataloader), total=math.ceil(len(data) / batch_size)):
+    for batch, (Xs, Ls, paths) in tqdm(enumerate(dataloader), total=math.ceil(len(data) / batch_size)):
+        Xs = Xs.to(device)
         Z_hats = cnn(Xs).cpu().data.numpy()
         for Z_hat, L, path in zip(Z_hats, Ls, paths):
             Z_hat = Z_hat.transpose(1, 2, 0)
