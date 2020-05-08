@@ -1,10 +1,10 @@
 import os
 import math
-import warnings
 import torch
 import numpy as np
 from glob import glob
 from tqdm import tqdm
+from multiprocessing import Pool
 from argparse import ArgumentParser
 from skimage import io, transform
 from colorize import network, util
@@ -29,6 +29,13 @@ def collate_fn(batch):
     Xs, Ls, paths = zip(*batch)
     Xs = torch.utils.data.dataloader.default_collate(Xs)
     return Xs, Ls, paths
+
+def save(args):
+    Z_hat, L, path = args
+    Z_hat = Z_hat.transpose(1, 2, 0)
+    ab = transform.resize(util.decode(Z_hat, strategy='annealed_mean'), L.shape[:2])
+    rgb = (util.lab2rgb(L, ab) * 255).astype(np.uint8)
+    io.imsave(os.path.join(out_dir, path), rgb)
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='Copies a directory structure with colorized images.')
@@ -67,8 +74,5 @@ if __name__ == '__main__':
     for batch, (Xs, Ls, paths) in tqdm(enumerate(dataloader), total=math.ceil(len(data) / batch_size)):
         Xs = Xs.to(device)
         Z_hats = cnn(Xs).cpu().data.numpy()
-        for Z_hat, L, path in zip(Z_hats, Ls, paths):
-            Z_hat = Z_hat.transpose(1, 2, 0)
-            ab = transform.resize(util.decode(Z_hat, strategy='annealed_mean'), L.shape[:2])
-            rgb = (util.lab2rgb(L, ab) * 255).astype(np.uint8)
-            io.imsave(os.path.join(out_dir, path), rgb)
+        with Pool(16) as pool:
+            pool.map(save, zip(Z_hats, Ls, paths))
