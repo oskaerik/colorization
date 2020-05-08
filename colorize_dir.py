@@ -20,7 +20,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         path = self.paths[index]
-        L, Y = util.imread(path, size=None)
+        L = io.imread(path, as_gray=True)[...,np.newaxis] * 100
         X = (transform.resize(L.copy(), self.in_size) - 50) / 50
         X = X.transpose(2, 0, 1).astype(np.float32)
         return X, L, path
@@ -29,13 +29,6 @@ def collate_fn(batch):
     Xs, Ls, paths = zip(*batch)
     Xs = torch.utils.data.dataloader.default_collate(Xs)
     return Xs, Ls, paths
-
-def save(args):
-    Z_hat, L, path = args
-    Z_hat = Z_hat.transpose(1, 2, 0)
-    ab = transform.resize(util.decode(Z_hat, strategy='annealed_mean'), L.shape[:2])
-    rgb = (util.lab2rgb(L, ab) * 255).astype(np.uint8)
-    io.imsave(os.path.join(out_dir, path), rgb)
 
 if __name__ == '__main__':
     parser = ArgumentParser(description='Copies a directory structure with colorized images.')
@@ -74,5 +67,8 @@ if __name__ == '__main__':
     for batch, (Xs, Ls, paths) in tqdm(enumerate(dataloader), total=math.ceil(len(data) / batch_size)):
         Xs = Xs.to(device)
         Z_hats = cnn(Xs).cpu().data.numpy()
-        with Pool(16) as pool:
-            pool.map(save, zip(Z_hats, Ls, paths))
+        for Z_hat, L, path in zip(Z_hats, Ls, paths):
+            Z_hat = Z_hat.transpose(1, 2, 0)
+            ab = transform.resize(util.decode(Z_hat, strategy='annealed_mean'), L.shape[:2])
+            rgb = (util.lab2rgb(L, ab) * 255).astype(np.uint8)
+            io.imsave(os.path.join(out_dir, path), rgb)

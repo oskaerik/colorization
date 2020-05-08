@@ -114,13 +114,8 @@ def reshape(a, dims):
 
 def imread(path, size=input_size):
     """Reads and resizes an image, returns Lab channels."""
-    rgb = io.imread(path)
-    if len(rgb.shape) > 2 and rgb.shape[2] >= 3:
-        # Read image as RGB (drop alpha channel if it exists)
-        rgb = rgb[:,:,:3]
-    else:
-        # Image is grayscale
-        rgb = np.stack((rgb[:,:], rgb[:,:], rgb[:,:]), axis=2)
+    # Read image as RGB (drop alpha channel if it exists)
+    rgb = io.imread(path)[:,:,:3]
 
     if size is not None:
         # Resize
