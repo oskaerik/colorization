@@ -47,13 +47,16 @@ if __name__ == '__main__':
         path = os.path.join(out_dir, path)
         os.makedirs(path, exist_ok=True)
 
-    # Load model
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    cnn = network.CNN()
-    cnn.load_state_dict(torch.load(args.model, map_location=device))
-    cnn.eval()
-    cnn.to(device)
-    w = torch.tensor(np.load('resources/w.npy')).to(device)
+    if args.model != 'random':
+        # Load model
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        cnn = network.CNN()
+        cnn.load_state_dict(torch.load(args.model, map_location=device))
+        cnn.eval()
+        cnn.to(device)
+    else:
+        # Load bins for random colorization
+        bins = np.load('resources/bins.npy')
 
     # Create DataLoader
     batch_size = 32
@@ -65,10 +68,17 @@ if __name__ == '__main__':
                                             collate_fn=collate_fn)
 
     for batch, (Xs, Ls, paths) in tqdm(enumerate(dataloader), total=math.ceil(len(data) / batch_size)):
-        Xs = Xs.to(device)
-        Z_hats = cnn(Xs).cpu().data.numpy()
+        if args.model != 'random':
+            Xs = Xs.to(device)
+            Z_hats = cnn(Xs).cpu().data.numpy()
+        else:
+            Z_hats = [None] * len(Ls)
         for Z_hat, L, path in zip(Z_hats, Ls, paths):
-            Z_hat = Z_hat.transpose(1, 2, 0)
-            ab = transform.resize(util.decode(Z_hat, strategy='annealed_mean'), L.shape[:2])
+            if args.model != 'random':
+                Z_hat = Z_hat.transpose(1, 2, 0)
+                ab = transform.resize(util.decode(Z_hat, strategy='annealed_mean'), L.shape[:2])
+            else:
+                ind = np.random.randint(0, len(bins), size=L.shape[:2])
+                ab = np.take(bins, ind, axis=0)
             rgb = (util.lab2rgb(L, ab) * 255).astype(np.uint8)
             io.imsave(os.path.join(out_dir, path), rgb)
