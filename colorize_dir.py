@@ -1,12 +1,12 @@
 import os
 import math
 import torch
+import skimage
 import numpy as np
 from glob import glob
 from tqdm import tqdm
 from multiprocessing import Pool
 from argparse import ArgumentParser
-from skimage import io, transform
 from colorize import network, util
 
 class Dataset(torch.utils.data.Dataset):
@@ -20,8 +20,8 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         path = self.paths[index]
-        L = io.imread(path, as_gray=True)[...,np.newaxis] * 100
-        X = (transform.resize(L.copy(), self.in_size) - 50) / 50
+        L = skimage.img_as_float(skimage.io.imread(path, as_gray=True)[...,np.newaxis]) * 100
+        X = (skimage.transform.resize(L.copy(), self.in_size) - 50) / 50
         X = X.transpose(2, 0, 1).astype(np.float32)
         return X, L, path
 
@@ -76,9 +76,9 @@ if __name__ == '__main__':
         for Z_hat, L, path in zip(Z_hats, Ls, paths):
             if args.model != 'random':
                 Z_hat = Z_hat.transpose(1, 2, 0)
-                ab = transform.resize(util.decode(Z_hat, strategy='annealed_mean'), L.shape[:2])
+                ab = skimage.transform.resize(util.decode(Z_hat, strategy='annealed_mean'), L.shape[:2])
             else:
                 ind = np.random.randint(0, len(bins), size=L.shape[:2])
                 ab = np.take(bins, ind, axis=0)
             rgb = (util.lab2rgb(L, ab) * 255).astype(np.uint8)
-            io.imsave(os.path.join(out_dir, path), rgb)
+            skimage.io.imsave(os.path.join(out_dir, path), rgb)
